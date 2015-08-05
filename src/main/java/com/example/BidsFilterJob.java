@@ -14,6 +14,7 @@ import org.apache.hadoop.util.ToolRunner;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -25,27 +26,38 @@ public class BidsFilterJob extends Configured implements Tool {
 
     public static void main(String[] args) throws Exception {
         validateArgs(args);
-        ToolRunner.run(new Configuration(), new BidsFilterJob(), args);
+        List<String> paths = new ArrayList<String>();
+        BufferedReader bufferedReader = null;
+        try {
+            bufferedReader = new BufferedReader(new FileReader(args[0]));
+            String line;
+            line = bufferedReader.readLine();
+            paths.addAll(Arrays.asList(line.split(" ")));
+        } finally {
+            if (bufferedReader != null) {
+                bufferedReader.close();
+            }
+        }
+        paths.add(args[1]);
+
+        String[] strings = Arrays.copyOf(paths.toArray(), paths.size(), String[].class);
+
+        ToolRunner.run(new Configuration(), new BidsFilterJob(), strings);
     }
 
     public int run(String[] args) throws Exception {
-        List<String> paths;
-        try(BufferedReader bufferedReader = new BufferedReader(new FileReader(args[0]))) {
-            String line;
-            line = bufferedReader.readLine();
-            paths = Arrays.asList(line.split(" "));
-        }
 
+        List<String> paths = new ArrayList<String>(Arrays.asList(args));
 
-        if (paths.size() == 0) {
+        if (paths.size() < 2) {
             throw new Exception("Empty input");
         }
 
-        String firstInput = paths.get(0);
-        String outputPath = args[1];
+        String outputPath = paths.remove(paths.size() - 1);
 
         Configuration c = getConf();
 
+        String firstInput = paths.remove(0);
         Pipeline pipeline = new MRPipeline(BidsFilterJob.class, c);
 
         PCollection<String> all_lines = pipeline.read(From.textFile(firstInput));
